@@ -60,6 +60,11 @@ model = YOLO(best_file_path)
 
 #     return output, image
 
+@api_view(['GET'])
+def test_module(request):
+    print(model)
+    return Response({'message': f'File uploaded successfully! {model}'})
+    
 
 # @api_view(['POST'])
 # @api_view(['GET'])
