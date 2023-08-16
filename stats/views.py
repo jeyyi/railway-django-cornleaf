@@ -3,8 +3,12 @@ from django.db import connections
 from rest_framework.decorators import api_view
 from django.db.models import Count
 from rest_framework.response import Response
+from rest_framework.request import HttpRequest
 from post.models import Post
-
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.models import load_model
+import tensorflow as tf
+from tkinter import Tk, filedialog
 from ultralytics import YOLO
 from PIL import Image, ImageDraw
 import os
@@ -12,10 +16,10 @@ import os
 current_file_path = os.path.dirname(os.path.abspath(__file__))
 best_file_path = os.path.join(current_file_path, 'best.pt')
 # # best_file_path_in_aws = 'https://2023-lamba-bucket.s3.ap-southeast-1.amazonaws.com/best.pt'
-# # # inception_file_path = os.path.join(current_file_path, 'Inception.h5')
+inception_file_path = os.path.join(current_file_path, 'Inception.h5')
 
 model = YOLO(best_file_path)
-# # model_detect = load_model(inception_file_path)
+model_detect = load_model(inception_file_path)
 
 def detect_objects_on_image(buf, model, output_folder):
     """
@@ -60,16 +64,8 @@ def detect_objects_on_image(buf, model, output_folder):
 
     return output, image
 
-# def detect_images_folder(folder_path, model):
-    """
-    Function to detect images in a folder using a pre-trained model.
-    It returns a list of detected labels for each image.
-    If the confidence for a detected label is less than 0.5, it will not predict the label.
+def detect_images_folder(folder_path, model):
 
-    :param folder_path: Path to the folder containing the images
-    :param model: Pre-trained model for classification
-    :return: List of detected labels for each image in the folder
-    """
     labels = ['Gray Leaf Spot', 'Common Rust', 'Healthy', 'Blight']
     detected = []
 
@@ -98,25 +94,21 @@ def test_module(request):
     
 
 @api_view(['POST'])
-def multi_leaves_classification(request):
+def multi_leaves_classification(request: HttpRequest):
     input_image = None
-    print(request.method)
-    print(request.FILES.get('file'))
     # step 1 upload an image with multiple leaves
-    if request.method == 'POST' and request.FILES.get('file'):
-        input_image = request.FILES['file']
-        print(input_image)
-        print(model)
+    if request.method == 'POST':
+        input_image = request.FILES.get('file')
 
-    # return Response({'message': 'Please provide a file to upload.'}, status=400)
-    # input_image = "farm.jpg"
-        output_folder = "stats\\test_folder"
+        output_folder = "stats/test_folder"
         detected_objects, annotated_image = detect_objects_on_image(input_image, model, output_folder)
-    # classifications = detect_images_folder(output_folder, model_detect)
-    # print(classifications)
+        # detect_images_folder(output_folder, model_detect)
+
+
+        for f in os.listdir(output_folder):
+            os.remove(os.path.join(output_folder, f))
     return Response({'message': f'File uploaded successfully! {model} {input_image}'})
 
-    # return Response()
 
 
 @api_view(["GET"])
