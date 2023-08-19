@@ -5,6 +5,7 @@ from django.db.models import Count
 from rest_framework.response import Response
 from rest_framework.request import HttpRequest
 from post.models import Post
+from stats.serializers import ImageSerializer
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.models import load_model
 import tensorflow as tf
@@ -12,30 +13,23 @@ from tkinter import Tk, filedialog
 from ultralytics import YOLO
 from PIL import Image, ImageDraw
 import os
+import boto3
+from boto3.s3.transfer import TransferConfig
+
+
+bucket_name = '2023-lamba-bucket'
+folder_name = 'test_folder/'
 
 current_file_path = os.path.dirname(os.path.abspath(__file__))
 best_file_path = os.path.join(current_file_path, 'best.pt')
 # # best_file_path_in_aws = 'https://2023-lamba-bucket.s3.ap-southeast-1.amazonaws.com/best.pt'
-inception_file_path = os.path.join(current_file_path, 'Inception.h5')
+# inception_file_path = os.path.join(current_file_path, 'Inception.h5')
 
 model = YOLO(best_file_path)
-model_detect = load_model(inception_file_path)
+# model_detect = load_model(inception_file_path)
 
 def detect_objects_on_image(buf, model, output_folder):
-    """
-    Function receives an image,
-    passes it through YOLOv8 neural network
-    and returns an array of detected objects
-    and their bounding boxes.
-    It also crops and saves each detected object
-    to the output_folder.
-
-    :param buf: Input image file stream
-    :param model: YOLOv8 model
-    :param output_folder: Folder to save cropped images
-    :return: Array of bounding boxes in format
-    [[x1,y1,x2,y2,object_type,probability],..]
-    """
+    s3 = boto3.client('s3')
     temp_image = Image.open(buf)
     model = model
     results = model.predict(temp_image)
@@ -53,7 +47,12 @@ def detect_objects_on_image(buf, model, output_folder):
 
         # Crop and save the detected object
         cropped_image = temp_image.crop((x1, y1, x2, y2))
-        cropped_image.save(f"{output_folder}/{result.names[class_id]}_{prob}.jpg")
+        cropped_image.save(f"{output_folder}/{result.names[class_id]}_{prob}.jpeg")
+        print(type(cropped_image))
+        object_name = folder_name + f"{result.names[class_id]}_{prob}.jpeg"
+        transfer_config = TransferConfig(use_threads=False)  # Disable multithreading for small files
+        s3.upload_fileobj(cropped_image, bucket_name, object_name, Config=transfer_config, ExtraArgs={'ACL':'public-read'})
+
 
     # Draw bounding boxes on the original image
     image = Image.open(buf)
@@ -64,34 +63,21 @@ def detect_objects_on_image(buf, model, output_folder):
 
     return output, image
 
-def detect_images_folder(folder_path, model):
-
-    labels = ['Gray Leaf Spot', 'Common Rust', 'Healthy', 'Blight']
-    detected = []
-
-    for leaf in os.listdir(folder_path):
-        img = image.load_img(os.path.join(folder_path, leaf), target_size=(180, 180))
-        x = image.img_to_array(img)
-        x = x / 255.0
-        x = tf.expand_dims(x, axis=0)
-        prediction = model.predict(x)
-
-        predicted_class_index = tf.argmax(prediction, axis=1).numpy()[0]
-        confidence = prediction[0][predicted_class_index]
-        print(confidence)
-        if confidence >= 0.5:
-            detected_label = labels[predicted_class_index]
-            detected.append(detected_label)
-        else:
-            detected.append("Unknown")  # If confidence < 0.5, label as "Unknown"
-
-    return detected
 
 @api_view(['GET'])
 def test_module(request):
     print(model)
     return Response({'message': f'File uploaded successfully! {model}'})
-    
+
+def read_images_from_folder(folder_path):
+    image_list = []
+    for filename in os.listdir(folder_path):
+        if filename.endswith(".jpg"):  # You can adjust the file extension
+            image_path = os.path.join(folder_path, filename)
+            with open(image_path,  "rb") as image_file:
+                image_data = image_file.read()
+            image_list.append(image_data)
+    return image_list
 
 @api_view(['POST'])
 def multi_leaves_classification(request: HttpRequest):
@@ -102,12 +88,26 @@ def multi_leaves_classification(request: HttpRequest):
 
         output_folder = "stats/test_folder"
         detected_objects, annotated_image = detect_objects_on_image(input_image, model, output_folder)
-        # detect_images_folder(output_folder, model_detect)
+        Response({'message': f'post is good {detected_objects, annotated_image}'})
+        # folder_path = "stats\\test_folder"
+        # image_filenames = os.listdir(folder_path)
 
+        # # for f in os.listdir(output_folder):
+        # #     os.remove(os.path.join(output_folder, f))
+        # image_data = []
+        # for filename in image_filenames:
+        #     print(os.path.join(folder_path, filename))
+        #     image_data.append({'image': os.path.join(folder_path, filename)})
 
-        for f in os.listdir(output_folder):
-            os.remove(os.path.join(output_folder, f))
-    return Response({'message': f'File uploaded successfully! {model} {input_image}'})
+        # image_data_list = read_images_from_folder(folder_path)
+        # # return Response(image_data_list, content_type='image/jpeg')
+        # serializer = ImageSerializer(data=image_data_list, many=True)
+        # if serializer.is_valid():
+        #     return Response(serializer.data)
+        # else:
+        #     return Response(serializer.errors, status=400) 
+    
+    return Response({'message': 'method not valid. Try to use POST'})
 
 
 
