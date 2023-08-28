@@ -1,3 +1,4 @@
+from io import BytesIO
 from django.shortcuts import render
 from django.db import connections
 from rest_framework.decorators import api_view
@@ -15,7 +16,7 @@ from PIL import Image, ImageDraw
 import os
 import boto3
 from boto3.s3.transfer import TransferConfig
-
+from uuid import uuid4
 
 bucket_name = '2023-lamba-bucket'
 folder_name = 'test_folder/'
@@ -48,10 +49,8 @@ def detect_objects_on_image(buf, model, output_folder):
         # Crop and save the detected object
         cropped_image = temp_image.crop((x1, y1, x2, y2))
         cropped_image.save(f"{output_folder}/{result.names[class_id]}_{prob}.jpeg")
-        print(type(cropped_image))
-        object_name = folder_name + f"{result.names[class_id]}_{prob}.jpeg"
-        transfer_config = TransferConfig(use_threads=False)  # Disable multithreading for small files
-        s3.upload_fileobj(cropped_image, bucket_name, object_name, Config=transfer_config, ExtraArgs={'ACL':'public-read'})
+        # print(type(cropped_image))
+        
 
 
     # Draw bounding boxes on the original image
@@ -60,7 +59,7 @@ def detect_objects_on_image(buf, model, output_folder):
     for box in output:
         x1, y1, x2, y2, _, _ = box
         draw.rectangle([x1, y1, x2, y2], outline='red', width=2) # type: ignore
-
+    image.save(f'{output_folder}/annotated_image.jpeg')
     return output, image
 
 
@@ -69,18 +68,31 @@ def test_module(request):
     print(model)
     return Response({'message': f'File uploaded successfully! {model}'})
 
+
 def read_images_from_folder(folder_path):
+    s3_client = boto3.client(
+        's3', 
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'), 
+        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+    )
+
     image_list = []
     for filename in os.listdir(folder_path):
-        if filename.endswith(".jpg"):  # You can adjust the file extension
+        random_uuid = uuid4()
+        s3_file_path = f'test_folder/{random_uuid}{filename}'
+        s3_address = f'https://2023-lamba-bucket.s3.ap-southeast-1.amazonaws.com/{s3_file_path}'
+
+        if filename.endswith(".jpeg"):  # You can adjust the file extension
             image_path = os.path.join(folder_path, filename)
             with open(image_path,  "rb") as image_file:
                 image_data = image_file.read()
-            image_list.append(image_data)
+                s3_client.upload_fileobj(image_file, bucket_name, s3_file_path)
+            image_list.append(s3_address)
     return image_list
 
+
 @api_view(['POST'])
-def multi_leaves_classification(request: HttpRequest):
+def multi_leaves_classification(request):
     input_image = None
     # step 1 upload an image with multiple leaves
     if request.method == 'POST':
@@ -88,27 +100,19 @@ def multi_leaves_classification(request: HttpRequest):
 
         output_folder = "stats/test_folder"
         detected_objects, annotated_image = detect_objects_on_image(input_image, model, output_folder)
-        Response({'message': f'post is good {detected_objects, annotated_image}'})
-        # folder_path = "stats\\test_folder"
-        # image_filenames = os.listdir(folder_path)
+        images = read_images_from_folder(output_folder)
+        
+        return Response({
+            'message': 'files uploaded to s3',
+            'files': images
+            }
+        )
+        
+        # upload image to s3
 
-        # # for f in os.listdir(output_folder):
-        # #     os.remove(os.path.join(output_folder, f))
-        # image_data = []
-        # for filename in image_filenames:
-        #     print(os.path.join(folder_path, filename))
-        #     image_data.append({'image': os.path.join(folder_path, filename)})
-
-        # image_data_list = read_images_from_folder(folder_path)
-        # # return Response(image_data_list, content_type='image/jpeg')
-        # serializer = ImageSerializer(data=image_data_list, many=True)
-        # if serializer.is_valid():
-        #     return Response(serializer.data)
-        # else:
-        #     return Response(serializer.errors, status=400) 
+        # return the list of images and mark as annotated or cropped
     
-    return Response({'message': 'method not valid. Try to use POST'})
-
+    return Response({'message': f'{request.method} method not valid. Try to use POST '})
 
 
 @api_view(["GET"])
