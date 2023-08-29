@@ -30,6 +30,7 @@ model = YOLO(best_file_path)
 # model_detect = load_model(inception_file_path)
 
 def detect_objects_on_image(buf, model, output_folder):
+    random_uuid = uuid4()
     s3 = boto3.client('s3')
     temp_image = Image.open(buf)
     model = model
@@ -48,7 +49,7 @@ def detect_objects_on_image(buf, model, output_folder):
 
         # Crop and save the detected object
         cropped_image = temp_image.crop((x1, y1, x2, y2))
-        cropped_image.save(f"{output_folder}/{result.names[class_id]}_{prob}.jpeg")
+        cropped_image.save(f"{output_folder}/{result.names[class_id]}_{prob}-{random_uuid}.jpeg")
         # print(type(cropped_image))
         
 
@@ -59,7 +60,7 @@ def detect_objects_on_image(buf, model, output_folder):
     for box in output:
         x1, y1, x2, y2, _, _ = box
         draw.rectangle([x1, y1, x2, y2], outline='red', width=2) # type: ignore
-    image.save(f'{output_folder}/annotated_image.jpeg')
+    image.save(f'{output_folder}/annotated_image-{random_uuid}.jpeg')
     return output, image
 
 
@@ -78,8 +79,8 @@ def read_images_from_folder(folder_path):
 
     image_list = []
     for filename in os.listdir(folder_path):
-        random_uuid = uuid4()
-        s3_file_path = f'test_folder/{random_uuid}{filename}'
+        
+        s3_file_path = f'test_folder/{filename}'
         s3_address = f'https://2023-lamba-bucket.s3.ap-southeast-1.amazonaws.com/{s3_file_path}'
 
         if filename.endswith(".jpeg"):  # You can adjust the file extension
