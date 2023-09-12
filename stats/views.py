@@ -1,21 +1,12 @@
-from io import BytesIO
-from django.shortcuts import render
-from django.db import connections
 from rest_framework.decorators import api_view
 from django.db.models import Count
 from rest_framework.response import Response
-from rest_framework.request import HttpRequest
 from post.models import Post
-from stats.serializers import ImageSerializer
-from tensorflow.keras.preprocessing import image
-from tensorflow.keras.models import load_model
-import tensorflow as tf
-from tkinter import Tk, filedialog
+
 from ultralytics import YOLO
 from PIL import Image, ImageDraw
 import os
 import boto3
-from boto3.s3.transfer import TransferConfig
 from uuid import uuid4
 
 bucket_name = '2023-lamba-bucket'
@@ -24,10 +15,8 @@ folder_name = 'test_folder/'
 current_file_path = os.path.dirname(os.path.abspath(__file__))
 best_file_path = os.path.join(current_file_path, 'best.pt')
 # # best_file_path_in_aws = 'https://2023-lamba-bucket.s3.ap-southeast-1.amazonaws.com/best.pt'
-# inception_file_path = os.path.join(current_file_path, 'Inception.h5')
 
 model = YOLO(best_file_path)
-# model_detect = load_model(inception_file_path)
 
 def detect_objects_on_image(buf, model, output_folder):
     random_uuid = uuid4()
@@ -62,12 +51,6 @@ def detect_objects_on_image(buf, model, output_folder):
         draw.rectangle([x1, y1, x2, y2], outline='red', width=2) # type: ignore
     image.save(f'{output_folder}/annotated_image-{random_uuid}.jpeg')
     return output, image
-
-
-@api_view(['GET'])
-def test_module(request):
-    print(model)
-    return Response({'message': f'File uploaded successfully! {model}'})
 
 
 def read_images_from_folder(folder_path):
@@ -109,10 +92,6 @@ def multi_leaves_classification(request):
             }
         )
         
-        # upload image to s3
-
-        # return the list of images and mark as annotated or cropped
-    
     return Response({'message': f'{request.method} method not valid. Try to use POST '})
 
 

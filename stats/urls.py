@@ -4,7 +4,7 @@ from .views import (
     get_stats_per_day,
     get_farmer_all_stats,
     get_farmer_stats_per_day,
-    test_module, multi_leaves_classification
+    multi_leaves_classification
 )
 
 urlpatterns = [
@@ -22,6 +22,5 @@ urlpatterns = [
         get_farmer_stats_per_day,
         name="get-stats-per-day",
     ),
-    path('test/', test_module, name='multi-detect'),
     path('multi-detect/', multi_leaves_classification, name='multi-detect'),
 ]
