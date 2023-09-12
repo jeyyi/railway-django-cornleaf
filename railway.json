@@ -4,7 +4,7 @@
         "builder": "NIXPACKS"
     },
     "deploy": {
-        "startCommand": "sudo apt-get install python3-tk && python manage.py migrate  && gunicorn config.wsgi",
+        "startCommand": "sudo python manage.py migrate  && gunicorn config.wsgi",
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10
     }
