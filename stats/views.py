@@ -14,7 +14,6 @@ folder_name = 'test_folder/'
 
 current_file_path = os.path.dirname(os.path.abspath(__file__))
 best_file_path = os.path.join(current_file_path, 'best.pt')
-# # best_file_path_in_aws = 'https://2023-lamba-bucket.s3.ap-southeast-1.amazonaws.com/best.pt'
 
 model = YOLO(best_file_path)
 
