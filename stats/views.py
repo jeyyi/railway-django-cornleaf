@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw
 import os
 import boto3
 from uuid import uuid4
+from io import BytesIO
 
 bucket_name = '2023-lamba-bucket'
 folder_name = 'test_folder/'
@@ -19,12 +20,23 @@ model = YOLO(best_file_path)
 
 def detect_objects_on_image(buf, model, output_folder):
     random_uuid = uuid4()
-    s3 = boto3.client('s3')
+    s3_client = boto3.client(
+        's3', 
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'), 
+        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+    )
+    s3_resource = boto3.resource('s3')
     temp_image = Image.open(buf)
     model = model
     results = model.predict(temp_image)
     result = results[0]
     output = []
+
+    image_list = []
+
+    s3_bucket_name = '2023-lamba-bucket'
+    s3_url = 'https://2023-lamba-bucket.s3.ap-southeast-1.amazonaws.com/'
+
     for box in result.boxes:
         x1, y1, x2, y2 = [
             round(x) for x in box.xyxy[0].tolist()
@@ -37,10 +49,14 @@ def detect_objects_on_image(buf, model, output_folder):
 
         # Crop and save the detected object
         cropped_image = temp_image.crop((x1, y1, x2, y2))
-        cropped_image.save(f"{output_folder}/{result.names[class_id]}_{prob}-{random_uuid}.jpeg")
-        # print(type(cropped_image))
-        
 
+        in_mem_file_leaf = BytesIO()
+        cropped_image.save(in_mem_file_leaf, format='JPEG')
+        image_buffer_body_leaf = in_mem_file_leaf.getvalue()
+        in_mem_file_leaf.seek(0)
+        key_name = f"{output_folder}/{result.names[class_id]}_{prob}-{random_uuid}.jpeg"
+        s3_resource.Bucket(s3_bucket_name).put_object(Key=key_name, Body=image_buffer_body_leaf)
+        image_list.append(s3_url+key_name)
 
     # Draw bounding boxes on the original image
     image = Image.open(buf)
@@ -48,11 +64,20 @@ def detect_objects_on_image(buf, model, output_folder):
     for box in output:
         x1, y1, x2, y2, _, _ = box
         draw.rectangle([x1, y1, x2, y2], outline='red', width=2) # type: ignore
-    image.save(f'{output_folder}/annotated_image-{random_uuid}.jpeg')
-    return output, image
+    
+
+    in_mem_file = BytesIO()
+    image.save(in_mem_file, format=image.format)
+    image_buffer_body = in_mem_file.getvalue()
+    in_mem_file.seek(0)
+    key_name = f'{output_folder}/annotated_image-{random_uuid}.jpeg'
+    s3_resource.Bucket(s3_bucket_name).put_object(Key=f'{output_folder}/annotated_image-{random_uuid}.jpeg', Body=image_buffer_body)
+    image_list.append(s3_url+key_name)
+
+    return output, image, image_list
 
 
-def read_images_from_folder(folder_path):
+def read_images_from_folder(folder_path, random_uuid):
     s3_client = boto3.client(
         's3', 
         aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'), 
@@ -65,11 +90,11 @@ def read_images_from_folder(folder_path):
         s3_file_path = f'test_folder/{filename}'
         s3_address = f'https://2023-lamba-bucket.s3.ap-southeast-1.amazonaws.com/{s3_file_path}'
 
-        if filename.endswith(".jpeg"):  # You can adjust the file extension
+        if filename.endswith(f"{random_uuid}.jpeg"):  # You can adjust the file extension
             image_path = os.path.join(folder_path, filename)
             with open(image_path,  "rb") as image_file:
                 image_data = image_file.read()
-                s3_client.upload_fileobj(image_file, bucket_name, s3_file_path)
+                # s3_client.upload_fileobj(image_file, bucket_name, s3_file_path)
             image_list.append(s3_address)
     return image_list
 
@@ -81,9 +106,12 @@ def multi_leaves_classification(request):
     if request.method == 'POST':
         input_image = request.FILES.get('file')
 
-        output_folder = "stats/test_folder"
-        detected_objects, annotated_image = detect_objects_on_image(input_image, model, output_folder)
-        images = read_images_from_folder(output_folder)
+        output_folder = "test_folder"
+        _, _, images = detect_objects_on_image(input_image, model, output_folder)
+
+        # read images from s3
+        # images = read_images_from_folder(output_folder, random_uuid)
+        # images = []
         
         return Response({
             'message': 'files uploaded to s3',
