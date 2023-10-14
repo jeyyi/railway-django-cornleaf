@@ -51,6 +51,8 @@ def detect_objects_on_image(buf, model, output_folder):
         cropped_image = temp_image.crop((x1, y1, x2, y2))
 
         in_mem_file_leaf = BytesIO()
+        if cropped_image.mode == 'RGBA':
+            cropped_image = cropped_image.convert('RGB')
         cropped_image.save(in_mem_file_leaf, format='JPEG')
         image_buffer_body_leaf = in_mem_file_leaf.getvalue()
         in_mem_file_leaf.seek(0)
