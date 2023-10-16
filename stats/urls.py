@@ -8,9 +8,9 @@ from .views import (
 )
 
 urlpatterns = [
-    path("total-stats/<int:user_id>/", get_all_stats, name="get-all-stats"),
+    path("total-stats/", get_all_stats, name="get-all-stats"),
     path(
-        "daily-stats/<int:user_id>/<str:date>/",
+        "daily-stats/<str:date>/",
         get_stats_per_day,
         name="get-stats-per-day",
     ),

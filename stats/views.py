@@ -125,7 +125,7 @@ def multi_leaves_classification(request):
 
 
 @api_view(["GET"])
-def get_all_stats(request, user_id):
+def get_all_stats(request):
     blight_count = (
         Post.objects.filter(blight=True)
         .annotate(total=Count("id"))
@@ -149,7 +149,7 @@ def get_all_stats(request, user_id):
 
 
 @api_view(["GET"])
-def get_stats_per_day(request, user_id, date):
+def get_stats_per_day(request, date):
     blight_count = Post.objects.filter(
         blight=True, date_posted=date
     ).count()
