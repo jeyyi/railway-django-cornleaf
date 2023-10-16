@@ -127,16 +127,16 @@ def multi_leaves_classification(request):
 @api_view(["GET"])
 def get_all_stats(request, user_id):
     blight_count = (
-        Post.objects.filter(blight=True, author=user_id)
+        Post.objects.filter(blight=True)
         .annotate(total=Count("id"))
         .count()
     )
-    rust_count = Post.objects.filter(rust=True, author=user_id).count()
+    rust_count = Post.objects.filter(rust=True, ).count()
     gray_leaf_spot_count = Post.objects.filter(
-        gray_leaf_spot=True, author=user_id
+        gray_leaf_spot=True
     ).count()
-    healthy_count = Post.objects.filter(healthy=True, author=user_id).count()
-    other_count = Post.objects.filter(other=True, author=user_id).count()
+    healthy_count = Post.objects.filter(healthy=True).count()
+    other_count = Post.objects.filter(other=True).count()
     return Response(
         {
             "blight_count": blight_count,
@@ -151,25 +151,25 @@ def get_all_stats(request, user_id):
 @api_view(["GET"])
 def get_stats_per_day(request, user_id, date):
     blight_count = Post.objects.filter(
-        blight=True, author=user_id, date_posted=date
+        blight=True, date_posted=date
     ).count()
     rust_count = (
-        Post.objects.filter(rust=True, author=user_id, date_posted=date)
+        Post.objects.filter(rust=True,  date_posted=date)
         .annotate(total=Count("id"))
         .count()
     )
     gray_leaf_spot_count = (
-        Post.objects.filter(gray_leaf_spot=True, author=user_id, date_posted=date)
+        Post.objects.filter(gray_leaf_spot=True, date_posted=date)
         .annotate(total=Count("id"))
         .count()
     )
     healthy_count = (
-        Post.objects.filter(healthy=True, author=user_id, date_posted=date)
+        Post.objects.filter(healthy=True, date_posted=date)
         .annotate(total=Count("id"))
         .count()
     )
     other_count = (
-        Post.objects.filter(other=True, author=user_id, date_posted=date)
+        Post.objects.filter(other=True, date_posted=date)
         .annotate(total=Count("id"))
         .count()
     )
@@ -187,21 +187,21 @@ def get_stats_per_day(request, user_id, date):
 @api_view(["GET"])
 def get_farmer_all_stats(request, user_id):
     blight_count = (
-        Post.objects.filter(blight=True, author=user_id, is_classification=True)
+        Post.objects.filter(blight=True, author=user_id, )
         .annotate(total=Count("id"))
         .count()
     )
     rust_count = Post.objects.filter(
-        rust=True, author=user_id, is_classification=True
+        rust=True, author=user_id, 
     ).count()
     gray_leaf_spot_count = Post.objects.filter(
-        gray_leaf_spot=True, author=user_id, is_classification=True
+        gray_leaf_spot=True, author=user_id, 
     ).count()
     healthy_count = Post.objects.filter(
-        healthy=True, author=user_id, is_classification=True
+        healthy=True, author=user_id, 
     ).count()
     other_count = Post.objects.filter(
-        other=True, author=user_id, is_classification=True
+        other=True, author=user_id, 
     ).count()
     return Response(
         {
